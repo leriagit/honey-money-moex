@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+.python-version
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Runtime state
+/data/
+logs/
+*.log
+*.jsonl
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Backups
+*.bak
+*.orig
+*~
+
+# IDE / OS
+.DS_Store
+__MACOSX/
+._*
+.idea/
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Офисные документы и медиа (заявка, презентации) — в код-репо не нужны
+*.pptx
+*.docx
+*.key
+*.DS_Store

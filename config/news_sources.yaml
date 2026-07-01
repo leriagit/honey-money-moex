@@ -1,0 +1,414 @@
+# Реестр всех новостных источников (37 шт).
+#
+# Поля:
+#   weight ∈ [0..1]        — базовый вес источника
+#   category               — dataset | ai_analytics | terminal | rss | tg | api | regulator | broker
+#   requires_key           — нужен ли API-ключ (хранится в .env)
+#   env_key                — имя переменной окружения с ключом
+#   ru_specialized         — фокусируется на РФ-рынке
+#   trump_priority         — часто публикует слова Трампа первым
+#   trust_tier             — verified | trusted | corporate | analytical | community |
+#                            broker | regulator | educational | aggregator | anonymous
+#   regulator_triggers     — список ключевых слов, при которых ставим
+#                            regulator_event=True (циркуит-брейкер)
+
+sources:
+  # ─────────────────── ОРИГИНАЛЬНЫЕ 19 ИСТОЧНИКОВ ───────────────────
+
+  - id: finmarba
+    name: FinMarBa
+    url: https://arxiv.org/abs/2507.22932
+    weight: 0.30
+    category: dataset
+    trust_tier: analytical
+    requires_key: false
+    ru_specialized: false
+    trump_priority: false
+
+  - id: stockemotions
+    name: StockEmotions
+    url: https://arxiv.org/abs/2301.09279
+    weight: 0.50
+    category: dataset
+    trust_tier: analytical
+    requires_key: false
+
+  - id: nbsdc
+    name: 金融事件级情感分析数据集
+    url: https://nbsdc.cn/
+    weight: 0.75
+    category: dataset
+    trust_tier: analytical
+    requires_key: false
+
+  - id: marketpsych
+    name: MarketPsych
+    url: https://MarketPsych.com/home
+    weight: 0.90
+    category: ai_analytics
+    trust_tier: verified
+    requires_key: true
+    env_key: MARKETPSYCH_API_KEY
+
+  - id: bloomberg
+    name: Bloomberg
+    url: https://www.bloomberg.com/
+    weight: 1.00
+    category: terminal
+    trust_tier: verified
+    requires_key: true
+    env_key: BLOOMBERG_API_KEY
+
+  - id: reuters
+    name: Reuters
+    url: https://www.reuters.com/world/
+    weight: 0.90
+    category: rss
+    trust_tier: verified
+    rss_url: https://feeds.reuters.com/reuters/businessNews
+
+  - id: investing
+    name: Investing.com
+    url: https://www.investing.com/
+    weight: 0.85
+    category: rss
+    trust_tier: verified
+    rss_url: https://www.investing.com/rss/news.rss
+
+  - id: permutable
+    name: Permutable AI
+    url: https://permutable.ai/
+    weight: 0.85
+    category: ai_analytics
+    trust_tier: verified
+    requires_key: true
+    env_key: PERMUTABLE_API_KEY
+
+  - id: ravenpack
+    name: RavenPack
+    url: https://www.ravenpack.com/
+    weight: 0.60
+    category: ai_analytics
+    trust_tier: verified
+    requires_key: true
+    env_key: RAVENPACK_API_KEY
+
+  - id: assymetrix
+    name: Assymetrix
+    url: https://www.assymetrix.com/
+    weight: 0.55
+    category: ai_analytics
+    trust_tier: analytical
+    requires_key: true
+    env_key: ASSYMETRIX_API_KEY
+
+  - id: quiver
+    name: Quiver Quantitative
+    url: https://www.quiverquant.com/
+    weight: 0.30
+    category: ai_analytics
+    trust_tier: analytical
+    requires_key: true
+    env_key: QUIVER_API_KEY
+
+  - id: ailantroquant
+    name: AilantroQuant
+    url: https://t.me/AilantroQuant
+    weight: 0.60
+    category: tg
+    trust_tier: analytical
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: alphavantage
+    name: Alpha Vantage
+    url: https://www.alphavantage.co/
+    weight: 0.30
+    category: api
+    trust_tier: verified
+    requires_key: true
+    env_key: ALPHAVANTAGE_API_KEY
+
+  - id: nyt
+    name: The New York Times
+    url: https://www.nytimes.com/
+    weight: 0.95
+    category: rss
+    trust_tier: verified
+    rss_url: https://rss.nytimes.com/services/xml/rss/nyt/Business.xml
+
+  - id: wsj
+    name: The Wall Street Journal
+    url: https://www.wsj.com/
+    weight: 0.95
+    category: rss
+    trust_tier: verified
+    rss_url: https://feeds.a.dj.com/rss/RSSMarketsMain.xml
+
+  - id: ft
+    name: Financial Times
+    url: https://www.ft.com/
+    weight: 1.00
+    category: rss
+    trust_tier: verified
+    rss_url: https://www.ft.com/?format=rss
+
+  - id: foxnews
+    name: Fox News
+    url: https://www.foxnews.com/
+    weight: 0.95
+    category: rss
+    trust_tier: trusted
+    rss_url: https://moxie.foxnews.com/google-publisher/latest.xml
+    trump_priority: true
+
+  - id: iea
+    name: МЭА (IEA)
+    url: https://www.iea.org/
+    weight: 0.90
+    category: rss
+    trust_tier: verified
+    rss_url: https://www.iea.org/feed.xml
+
+  - id: wapo
+    name: The Washington Post
+    url: https://www.washingtonpost.com/
+    weight: 0.70
+    category: rss
+    trust_tier: verified
+    rss_url: https://feeds.washingtonpost.com/rss/business
+
+  # ─────────────────── НОВЫЕ ТГК (10 шт) ─────────────────────────────
+
+  - id: markettwits
+    name: MarketTwits
+    url: https://t.me/markettwits
+    weight: 0.85
+    category: tg
+    trust_tier: trusted
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: dohod
+    name: ДОХОДЪ
+    url: https://t.me/dohod
+    weight: 0.85
+    category: tg
+    trust_tier: corporate
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: thebell
+    name: The Bell
+    url: https://t.me/thebell_io
+    weight: 0.90
+    category: tg
+    trust_tier: trusted
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: smartlab
+    name: Смартлаб
+    url: https://t.me/smartlabnews
+    weight: 0.75
+    category: tg
+    trust_tier: community
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: investera
+    name: Invest Era
+    url: https://t.me/InvestEra_Lite
+    weight: 0.80
+    category: tg
+    trust_tier: analytical
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: kotfin
+    name: Кот.Финанс
+    url: https://t.me/KotFin
+    weight: 0.40
+    category: tg
+    trust_tier: anonymous
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: divonline
+    name: Дивиденды Онлайн
+    url: https://t.me/divonline
+    weight: 0.50
+    category: tg
+    trust_tier: aggregator
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: kbecon
+    name: КБ.Экономика
+    url: https://t.me/kbecon
+    weight: 0.70
+    category: tg
+    trust_tier: trusted
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: alfa_invest
+    name: Альфа-Инвестиции
+    url: https://t.me/alfa_investments
+    weight: 0.85
+    category: tg
+    trust_tier: broker
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: prostoecon
+    name: Простая экономика (Н.Мячин)
+    url: https://t.me/prostoecon
+    weight: 0.60
+    category: tg
+    trust_tier: educational
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  # ─────────────── КЛЮЧЕВЫЕ РОССИЙСКИЕ ИСТОЧНИКИ (8 шт) ──────────────
+
+  - id: cbr
+    name: Банк России (ЦБ РФ)
+    url: https://www.cbr.ru/
+    weight: 1.00
+    category: regulator
+    trust_tier: regulator
+    ru_specialized: true
+    requires_key: false
+    regulator_triggers:
+      - "ключевая ставка"
+      - "ключевой ставки"
+      - "ключевую ставку"
+      - "денежно-кредитной политики"
+      - "ДКП"
+      - "решение совета директоров"
+      - "процентная ставка"
+
+  - id: kremlin
+    name: Кремль / kremlin.ru
+    url: http://kremlin.ru/
+    weight: 1.00
+    category: regulator
+    trust_tier: regulator
+    ru_specialized: true
+    requires_key: false
+    regulator_triggers:
+      - "указ президента"
+      - "мобилизац"
+      - "военное положение"
+      - "санкции против"
+      - "контрсанкц"
+      - "национализац"
+      - "конфискация"
+      - "выпуск офз"
+
+  - id: moex_news
+    name: Московская биржа (новости)
+    url: https://www.moex.com/n
+    weight: 1.00
+    category: regulator
+    trust_tier: regulator
+    ru_specialized: true
+    requires_key: false
+    regulator_triggers:
+      - "приостановка торгов"
+      - "стоп-торги"
+      - "включение в индекс"
+      - "исключение из индекса"
+      - "делистинг"
+
+  - id: rbc
+    name: РБК
+    url: https://www.rbc.ru/
+    weight: 0.95
+    category: rss
+    trust_tier: trusted
+    rss_url: https://rssexport.rbc.ru/rbcnews/news/30/full.rss
+    ru_specialized: true
+
+  - id: sbercib
+    name: SberCIB / Сбербанк
+    url: https://t.me/sberinvestments
+    weight: 0.90
+    category: tg
+    trust_tier: broker
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: tbank
+    name: Т-Банк Инвестиции
+    url: https://t.me/tinkoff_invest
+    weight: 0.80
+    category: tg
+    trust_tier: broker
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: finam
+    name: ФИНАМ Alert
+    url: https://t.me/finamalert
+    weight: 0.85
+    category: tg
+    trust_tier: broker
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+  - id: bcs
+    name: BCS Express
+    url: https://t.me/bcs_express
+    weight: 0.85
+    category: tg
+    trust_tier: broker
+    requires_key: true
+    env_key: TELEGRAM_API_ID
+    ru_specialized: true
+
+# ─────────────────────────── Глобальные настройки ────────────────────
+
+aggregator:
+  ru_relevance_boost: 1.5
+  trump_boost: 1.3
+  window_hours: 24
+  min_confidence: 0.20
+  enable_ru_defense_signal: true
+
+  # Trust-tier multipliers (применяется поверх weight)
+  trust_multipliers:
+    regulator:   1.20    # ЦБ, Кремль — поднимаем ещё
+    verified:    1.10    # Bloomberg, Reuters, WSJ, FT, NYT — крутые
+    trusted:     1.05    # The Bell, MarketTwits, KБ.Экономика
+    broker:      1.00    # SberCIB, Альфа, BCS — нормально
+    corporate:   1.00    # ДОХОДЪ
+    analytical:  0.95    # Invest Era, datasets
+    community:   0.90    # Смартлаб — мнения
+    educational: 0.85    # Простая экономика — не сигналы
+    aggregator:  0.80    # Дивиденды Онлайн — без анализа
+    anonymous:   0.60    # Кот.Финанс — возможная аффилированность
+
+# RU-counter источники для ru_defense_flag (добавили rbc, finam, smartlab)
+ru_counter_sources:
+  - rbc
+  - finam
+  - interfax        # ещё нет парсера, но в логике учитываем
+  - kommersant      # ещё нет парсера
+  - vedomosti       # ещё нет парсера
+  - smartlab

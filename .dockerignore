@@ -1,0 +1,46 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+.python-version
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Runtime state
+/data/
+logs/
+*.log
+*.jsonl
+
+# Tests/cache
+tests/
+pytest.ini
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE / OS
+.DS_Store
+__MACOSX/
+._*
+.idea/
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/

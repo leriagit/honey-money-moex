@@ -1,0 +1,352 @@
+# ──────────────────────────────────────────────────────────────────
+# Macro priors для MacroContextMLProvider.
+#
+# Это НЕ ML-веса в смысле обучения. Это explainable overlay поверх
+# базовой ML-модели (Baseline или LightGBM), который применяет
+# логит-сдвиг к prob_up по тикеру в зависимости от:
+#   1) macro_state — текущий снимок макро-факторов (boolean-флаги,
+#      выставляются вручную тимлидом или скриптом по утрам);
+#   2) events     — календарь событий с time-decay (PCE 28.05,
+#      дивотсечка SBER 20.07, разрешение на нефть до 17.06);
+#   3) tickers    — per-ticker реакция на каждый фактор (signed coef).
+#
+# Логика применения:
+#   prob_up_macro = sigmoid( logit(prob_up_base) + Σ active_priors )
+#
+# Все коэффициенты в логит-шкале:
+#   +0.4  ≈ shift prob 0.50 → 0.60
+#   +0.8  ≈ shift prob 0.50 → 0.69
+#   −1.0  ≈ shift prob 0.50 → 0.27
+#
+# Источник priors: брифинг аналитика на неделю 27-29 мая.
+# Правят: Лера (тимлид-ML), Захар (трейдер). Без согласования не менять.
+# ──────────────────────────────────────────────────────────────────
+
+asof: "2026-05-23T09:00:00+03:00"
+asof_note: "Брифинг на торговую неделю 27-29 мая 2026"
+
+# ─────────────────── Текущий снимок макрофакторов ─────────────────
+# Все поля — boolean toggles. Активируем = добавляем коэф к логиту.
+# Уровни (числа) можно держать рядом как комментарий для трейдера,
+# но в логите учитываем только флаг.
+macro_state:
+  # Денежно-кредитная политика
+  cbr_rate_cut_cycle_active: true        # ключевая ставка 14.5%, цикл смягчения с июня 2025
+  cbr_rate_value: 14.5                   # числовое значение → уходит в LLM-контекст
+
+  # ── Числовой снимок рынка для LLM-агентов ──────────────────────
+  # Это СТАТИЧЕСКИЕ допущения (live-фида пока нет): RegimeAnalyst и
+  # FundamentalAnalyst подставляют эти числа в свои промпты. Правит
+  # трейдер по утрам вместе с флагами ниже. Раньше были захардкожены
+  # в коде (brent=110, usd_rub=91) — теперь живут здесь, в одном месте.
+  brent_usd_value: 110.0                 # USD/баррель Brent
+  usd_rub_value: 91.0                    # курс USD/RUB
+  imoex_realized_vol_value: 0.02         # дневная realized vol IMOEX (доля)
+
+  # Нефть
+  brent_above_100: true                  # Brent ≈ $110-111
+  brent_above_120: false                 # триггер для SNGSP в минус
+  hormuz_blockade_active: true           # с конца февраля 2026, дефицит ~15%
+  oil_sanctions_relief_active: true      # Минфин США снял санкции на РФ-нефть до 17.06
+  india_oil_tariff_active: true          # 25% пошлина на покупателей РФ-нефти
+  us_new_sanctions_threat: true          # обсуждение в Конгрессе
+
+  # Валюта
+  usd_rub_weakening: true                # рубль слабеет под угрозой санкций
+  usd_rub_strong_strengthening: false    # резкое укрепление (Brent>$120) → флаг для SNGSP-
+
+  # Драгметаллы
+  gold_correction_phase: true            # после максимумов, около $4460-4580
+  pce_expected_hot: true                 # CPI вышел выше → PCE скорее всего тоже горячее
+
+  # Геополитика
+  geopolitics_negative_bg: true          # переговоры РФ-Украина буксуют
+  europe_gas_talks_positive: false       # триггер для GAZP +
+  sila_sibiri_2_news_positive: false     # триггер для GAZP +
+  ukraine_peace_talks_rumor: false       # триггер для GAZP +
+
+  # Институциональные потоки
+  chachava_buying_vtb: true              # активно скупает с конца апреля
+  banking_sector_positive_flow: true     # halo на банки в целом
+
+  # IT / Reflation
+  ydex_oversold_technical: true          # поддержка 4000₽, нисходящий канал к пробою
+  ai_sector_positive_news: false         # триггер для YDEX +
+
+  # Ипотека / Девелопмент
+  mortgage_volume_growing: false         # триггер для PIKK +
+  young_mortgage_program_news: false     # триггер для PIKK +
+
+  # Защитные / общий риск
+  market_risk_off_mode: false            # включается при сильной просадке индекса
+  imoex_uptrend: true                    # общий подъём рынка
+
+# ──────────────────────── Календарь событий ────────────────────────
+# pre_event_hold_hours: за сколько часов до релиза форсируем HOLD
+# post_event_hold_minutes: после релиза тоже HOLD на короткий ресет
+# outcome: null до релиза; после ставим "hot" / "soft" / "as_expected"
+events:
+  - id: pce_may28
+    name: "PCE Inflation Data (US, May 2026)"
+    when: "2026-05-28T21:30:00+03:00"
+    binary: true
+    affects_tickers: [PLZL]
+    pre_event_hold_hours: 2
+    post_event_hold_minutes: 15
+    # пока релиза не было — закладываем ожидание аналитика (вероятно hot)
+    prior_logit_shift: -0.15                # лёгкий медвежий тилт до релиза
+    outcome: null                            # заполняется после публикации
+    outcome_logit_shift_hot: -0.50           # PLZL −4...−6% за день
+    outcome_logit_shift_soft: +0.50          # PLZL +4...+7% за день
+    outcome_logit_shift_as_expected: 0.0
+    notes: "Бинарный катализатор, единственный явный дедлайн недели"
+
+  - id: sber_div_cutoff_jul20
+    name: "SBER dividend cutoff 37.64₽"
+    when: "2026-07-20T10:00:00+03:00"
+    binary: false
+    affects_tickers: [SBER]
+    pre_event_logit_shift: +0.10             # дивгэп положительный до отсечки
+    decay_days: 60                            # действует начиная с -60 дней
+    notes: "Дивы рекомендованы, growing toward cutoff"
+
+  - id: oil_sanctions_relief_expiry
+    name: "US oil sanctions relief deadline"
+    when: "2026-06-17T00:00:00+03:00"
+    binary: false
+    affects_tickers: [LKOH, ROSN, GAZP, SNGSP, TATN]
+    pre_event_logit_shift: -0.07             # давление по мере приближения
+    decay_days: 21
+    notes: "После 17.06 неопределённость → давление на нефтянку"
+
+  - id: cbr_meeting_jun
+    name: "CBR Key Rate Decision (next meeting)"
+    when: "2026-06-06T13:30:00+03:00"
+    binary: true
+    affects_tickers: [SBER, VTBR, PIKK, MGNT, X5]
+    pre_event_hold_hours: 0                  # не HOLD, но snapshot-режим
+    prior_logit_shift: +0.08                 # ожидание дальнейшего снижения
+    outcome: null
+    outcome_logit_shift_dovish: +0.30
+    outcome_logit_shift_hawkish: -0.30
+    outcome_logit_shift_neutral: 0.0
+
+# ─────────────────── Per-ticker priors (12 тикеров) ────────────────
+# base_bias: статический тилт, всегда применяется
+# factors: dict { state_flag_name → logit_shift_if_True }
+tickers:
+
+  SBER:
+    base_bias: +0.10
+    factors:
+      cbr_rate_cut_cycle_active: +0.20
+      banking_sector_positive_flow: +0.08
+      chachava_buying_vtb: +0.05               # halo на банки
+      geopolitics_negative_bg: -0.04
+      imoex_uptrend: +0.08
+      market_risk_off_mode: -0.20
+    notes: "Tier-1, сильная отчётность, дивы 37.64₽ 20.07"
+
+  VTBR:
+    base_bias: +0.15
+    factors:
+      cbr_rate_cut_cycle_active: +0.18
+      chachava_buying_vtb: +0.30                # прямой бенефициар
+      banking_sector_positive_flow: +0.10
+      geopolitics_negative_bg: -0.05
+      imoex_uptrend: +0.10
+      market_risk_off_mode: -0.18
+    notes: "Чачава активно скупает 27-29 — спокойно заходим"
+
+  LKOH:
+    base_bias: 0.0
+    factors:
+      brent_above_100: +0.18
+      brent_above_120: -0.05                    # может развернуться по импорту
+      oil_sanctions_relief_active: +0.15
+      hormuz_blockade_active: +0.10
+      india_oil_tariff_active: -0.10
+      us_new_sanctions_threat: -0.12
+      imoex_uptrend: +0.05
+    notes: "Стоп при пробое Brent < $100. Любая новость Конгресса = выход."
+
+  ROSN:
+    base_bias: 0.0
+    factors:
+      brent_above_100: +0.16
+      oil_sanctions_relief_active: +0.15
+      hormuz_blockade_active: +0.09
+      india_oil_tariff_active: -0.10
+      us_new_sanctions_threat: -0.12
+      imoex_uptrend: +0.05
+    notes: "То же поведение, что LKOH, чуть менее ликвиден"
+
+  GAZP:
+    base_bias: -0.08                            # фундамент отсутствует
+    factors:
+      europe_gas_talks_positive: +0.45          # max прострел 8-12%
+      sila_sibiri_2_news_positive: +0.35
+      ukraine_peace_talks_rumor: +0.30
+      imoex_uptrend: +0.15                       # бета выше голубых фишек
+      geopolitics_negative_bg: -0.10
+      us_new_sanctions_threat: -0.08
+    notes: "Чисто новостная история, стоп −3% от входа ОБЯЗАТЕЛЕН"
+
+  SNGSP:
+    base_bias: 0.0
+    factors:
+      usd_rub_weakening: +0.25                  # главный драйвер
+      usd_rub_strong_strengthening: -0.20       # Brent>$120 → рубль крепнет
+      us_new_sanctions_threat: +0.15
+      india_oil_tariff_active: +0.10            # давление на нефтедоходы → рубль слабеет
+      brent_above_120: -0.10
+      geopolitics_negative_bg: +0.05            # эскалация → рубль слабеет
+    notes: "Ставка на ослабление рубля. Смотрим Si, а не нефть."
+
+  PLZL:
+    base_bias: 0.0
+    factors:
+      gold_correction_phase: -0.05              # технически после максимума
+      pce_expected_hot: -0.10                   # фоновое ожидание
+      imoex_uptrend: +0.03
+    pce_event_id: pce_may28                     # event-aware gating
+    notes: "Бинарный катализатор PCE 28.05 21:30 МСК"
+
+  YDEX:
+    base_bias: +0.10                            # лучший R/R по аналитике
+    factors:
+      ydex_oversold_technical: +0.15
+      ai_sector_positive_news: +0.15
+      cbr_rate_cut_cycle_active: +0.05
+      imoex_uptrend: +0.12
+      market_risk_off_mode: -0.10
+    notes: "Поддержка 4000₽, цель отскока 4400-4800₽"
+
+  PIKK:
+    base_bias: 0.0
+    factors:
+      cbr_rate_cut_cycle_active: +0.25          # ставка → ипотека → ПИК ×1.5-2
+      mortgage_volume_growing: +0.20
+      young_mortgage_program_news: +0.18
+      imoex_uptrend: +0.20                       # усилитель рынка
+      market_risk_off_mode: -0.25
+      geopolitics_negative_bg: -0.05
+    notes: "Beta 1.5-2 к рынку. Идеален при голубиных сигналах ЦБ."
+
+  X5:
+    base_bias: +0.05
+    factors:
+      market_risk_off_mode: +0.15               # активируется в риск-офф
+      geopolitics_negative_bg: +0.05
+      imoex_uptrend: +0.03
+      cbr_rate_cut_cycle_active: +0.03
+    notes: "Защитный, стабильный денежный поток, мало нефти/геополитики"
+
+  MGNT:
+    base_bias: +0.05
+    factors:
+      market_risk_off_mode: +0.15
+      geopolitics_negative_bg: +0.05
+      imoex_uptrend: +0.03
+    notes: "Защитный аналог X5"
+
+  MTSS:
+    base_bias: +0.05
+    factors:
+      market_risk_off_mode: +0.12
+      cbr_rate_cut_cycle_active: +0.05          # дивидендная история
+      geopolitics_negative_bg: +0.04
+      imoex_uptrend: +0.02
+    notes: "Защитный, дивидендная история"
+
+  # ─────────── Тикеры из ТЗ ArenaGo, добавлены 23.05 ───────────
+
+  T:
+    base_bias: +0.08                            # TCS Group, банковский сектор + IT
+    factors:
+      cbr_rate_cut_cycle_active: +0.15
+      banking_sector_positive_flow: +0.08
+      chachava_buying_vtb: +0.03                # halo на банки
+      geopolitics_negative_bg: -0.04
+      imoex_uptrend: +0.08
+      market_risk_off_mode: -0.18
+    notes: "TCS Group, ex-Тинькофф, банковский сектор"
+
+  NVTK:
+    base_bias: 0.0
+    factors:
+      brent_above_100: +0.15                    # ↑ цены на газ → ↑ NVTK
+      brent_above_120: -0.05
+      oil_sanctions_relief_active: +0.12
+      hormuz_blockade_active: +0.08
+      europe_gas_talks_positive: +0.20
+      sila_sibiri_2_news_positive: +0.15
+      us_new_sanctions_threat: -0.12
+      india_oil_tariff_active: -0.05
+      imoex_uptrend: +0.05
+    notes: "НоваТЭК, газовый сектор, чувствителен к экспортным новостям"
+
+  GMKN:
+    base_bias: 0.0
+    factors:
+      usd_rub_weakening: +0.10                  # экспортёр металлов
+      brent_above_120: -0.05                    # сильная нефть → крепкий рубль → давит
+      geopolitics_negative_bg: -0.04
+      market_risk_off_mode: -0.15
+      imoex_uptrend: +0.06
+    notes: "Норникель, металлы (палладий, никель, медь)"
+
+  ALRS:
+    base_bias: -0.02                            # алмазы под санкциями
+    factors:
+      usd_rub_weakening: +0.08                  # экспортёр
+      us_new_sanctions_threat: -0.10
+      geopolitics_negative_bg: -0.05
+      market_risk_off_mode: -0.18
+      imoex_uptrend: +0.04
+    notes: "Алроса, алмазный сектор, санкционные риски"
+
+  CHMF:
+    base_bias: 0.0
+    factors:
+      usd_rub_weakening: +0.10
+      cbr_rate_cut_cycle_active: +0.05          # дивидендная история, ставка вниз → дороже актив
+      market_risk_off_mode: -0.15
+      imoex_uptrend: +0.06
+    notes: "Северсталь, металл, экспортёр"
+
+  NLMK:
+    base_bias: 0.0
+    factors:
+      usd_rub_weakening: +0.10
+      cbr_rate_cut_cycle_active: +0.05
+      market_risk_off_mode: -0.15
+      imoex_uptrend: +0.06
+    notes: "НЛМК, металл, аналог CHMF"
+
+  AFLT:
+    base_bias: -0.03                            # высокий долг, циклика
+    factors:
+      cbr_rate_cut_cycle_active: +0.18          # снижение ставки → дешевле обслуживать долг
+      brent_above_120: -0.10                    # топливо дороже → давит
+      geopolitics_negative_bg: -0.06            # ограничения на полёты
+      market_risk_off_mode: -0.20               # циклика, дёргается в риск-офф
+      imoex_uptrend: +0.10
+    notes: "Аэрофлот, циклика, чувствителен к топливу и ставке"
+
+  MOEX:
+    base_bias: +0.05                            # сама биржа — бенефициар активности
+    factors:
+      cbr_rate_cut_cycle_active: -0.05          # ставка вниз → ↓ доходы от размещения средств
+      imoex_uptrend: +0.10                       # сама бенефициар роста рынка
+      market_risk_off_mode: -0.12
+      banking_sector_positive_flow: +0.05
+    notes: "Мосбиржа, доходы от объёмов и percent margin"
+
+# ─────────────────── Overlay configuration ────────────────────────
+overlay_config:
+  max_logit_shift: 0.8                          # |Σ active_priors| <= 0.8
+  base_provider_weight: 1.0                     # 1.0 = логит-сложение; <1.0 = частичное смешивание
+  enable_event_gating: true
+  log_decompose: true                           # в rationale — разложение по факторам
+  default_unknown_ticker_passthrough: true      # неизвестный тикер → возвращаем base без overlay

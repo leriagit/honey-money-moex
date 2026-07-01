@@ -1,0 +1,95 @@
+# GitLab CI/CD pipeline для honey_money_bot.
+# Команда organizers разворачивает контейнер через свой инструментарий —
+# здесь только сборка/тесты + поддержка ops-кнопок через ENABLE_OPS_BUTTONS.
+
+variables:
+  ENABLE_OPS_BUTTONS: "no"
+  DOCKER_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+
+stages:
+  - test
+  - build
+  - ops
+
+# ── Тесты Python (быстрый smoke) ─────────────────────────────────
+test:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends libgomp1 ca-certificates
+    - pip install --no-cache-dir -r requirements.txt
+  script:
+    - python -c "from src.config import load_settings; print('config OK')"
+    - python -c "from src.decision.honey_money_provider import HoneyMoneyDecisionProvider; print('provider OK')"
+    - python -c "from src.data.moex_iss import MoexISSMarketDataProvider; print('moex_iss OK')"
+    - python -c "import lightgbm; import aiomoex; import httpx; import feedparser; print('imports OK')"
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+# ── Сборка Docker-образа ─────────────────────────────────────────
+build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $DOCKER_IMAGE -t $CI_REGISTRY_IMAGE:latest .
+    - docker push $DOCKER_IMAGE
+    - docker push $CI_REGISTRY_IMAGE:latest
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ── Ops-кнопки (по требованию organizers через ENABLE_OPS_BUTTONS=yes) ──
+# При запуске pipeline с переменной ENABLE_OPS_BUTTONS=yes появляются
+# manual jobs для управления контейнером.
+ops:restart:
+  stage: ops
+  image: alpine:3.19
+  script:
+    - echo "Manual restart trigger — organizers handle actual restart"
+  rules:
+    - if: $ENABLE_OPS_BUTTONS == "yes"
+      when: manual
+      allow_failure: true
+
+ops:start:
+  stage: ops
+  image: alpine:3.19
+  script:
+    - echo "Manual start trigger"
+  rules:
+    - if: $ENABLE_OPS_BUTTONS == "yes"
+      when: manual
+      allow_failure: true
+
+ops:stop:
+  stage: ops
+  image: alpine:3.19
+  script:
+    - echo "Manual stop trigger"
+  rules:
+    - if: $ENABLE_OPS_BUTTONS == "yes"
+      when: manual
+      allow_failure: true
+
+ops:attach-disk:
+  stage: ops
+  image: alpine:3.19
+  script:
+    - echo "Manual attach-disk trigger (/data persistence)"
+  rules:
+    - if: $ENABLE_OPS_BUTTONS == "yes"
+      when: manual
+      allow_failure: true
+
+ops:detach-disk:
+  stage: ops
+  image: alpine:3.19
+  script:
+    - echo "Manual detach-disk trigger"
+  rules:
+    - if: $ENABLE_OPS_BUTTONS == "yes"
+      when: manual
+      allow_failure: true
